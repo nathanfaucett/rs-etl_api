@@ -1,0 +1,29 @@
+[package]
+name = "etl_api"
+version = "0.1.0"
+description = "extract transform load api"
+authors = ["nathanfaucett@gmail.com"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = ""
+default-run = "etl_api"
+edition = "2021"
+rust-version = "1.69"
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+actix-web = "4"
+actix-cors = "0.6"
+env_logger = "0.10"
+log = "0.4"
+futures = "0.3"
+utoipa = { version = "3", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "3", features = ["actix-web"] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
