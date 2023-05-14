@@ -20,7 +20,7 @@ async fn main() -> Result<(), impl Error> {
         fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
             let components = openapi.components.as_mut().unwrap();
             components.add_security_scheme(
-                "api_jwt_token",
+                "API JWT Token",
                 SecurityScheme::Http(
                     HttpBuilder::new()
                         .scheme(HttpAuthScheme::Bearer)
