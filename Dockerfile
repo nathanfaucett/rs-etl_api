@@ -1,4 +1,4 @@
-FROM rust:1.69-alpine3.17 as builder
+FROM rust:1.70-alpine3.17 as builder
 
 WORKDIR /app
 
@@ -9,8 +9,8 @@ RUN cargo install --path .
 
 FROM alpine:3
 
-COPY --from=builder /usr/local/cargo/bin/etl_api /usr/local/bin/etl_api
+COPY --from=builder /usr/local/cargo/bin/etl /usr/local/bin/etl
 
 EXPOSE 8080
 
-CMD ["etl_api"]
+CMD ["etl"]

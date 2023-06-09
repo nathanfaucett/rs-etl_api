@@ -1,14 +1,23 @@
 use std::{error::Error, net::Ipv4Addr};
 
 use actix_cors::Cors;
-use actix_web::{middleware::Logger, App, HttpServer};
+use actix_web::{middleware::Logger, App, HttpServer, web};
 use utoipa::{
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    openapi::security::{SecurityScheme, HttpBuilder, HttpAuthScheme},
     Modify, OpenApi,
 };
 use utoipa_swagger_ui::SwaggerUi;
 
-use etl_api::{controller::util, model::util as util_model};
+use etl::{
+    controller::util, 
+    controller::user, 
+    controller::auth, 
+    model::user as model_user, 
+    model::util as util_model, 
+    model::auth as auth_model, 
+    settings::SETTINGS, 
+    middleware::auth::Authorization
+};
 
 #[actix_web::main]
 async fn main() -> Result<(), impl Error> {
@@ -20,7 +29,7 @@ async fn main() -> Result<(), impl Error> {
         fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
             let components = openapi.components.as_mut().unwrap();
             components.add_security_scheme(
-                "API JWT Token",
+                "Authorization",
                 SecurityScheme::Http(
                     HttpBuilder::new()
                         .scheme(HttpAuthScheme::Bearer)
@@ -36,16 +45,22 @@ async fn main() -> Result<(), impl Error> {
         paths(
             util::health,
             util::version,
+            user::current,
+            auth::auth,
         ),
         components(
             schemas(
                 util_model::VersionResponse, 
                 util_model::HealthResponse, 
-                util_model::ErrorResponse
+                util_model::ErrorResponse,
+                model_user::UserResponse,
+                auth_model::AuthRequest,
+                auth_model::AuthResponse,
             )
         ),
         tags(
-            (name = "util", description = "Utility endpoints")
+            (name = "util", description = "Utility endpoints"),
+            (name = "user", description = "User endpoints")
         ),
         modifiers(&SecurityAddon)
     )]
@@ -56,19 +71,29 @@ async fn main() -> Result<(), impl Error> {
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
+            .service(
+                SwaggerUi::new("/swagger-ui/{_:.*}")
+                    .url("/api-docs/openapi.json", openapi.clone()),
+            )
             .wrap(
                 Cors::default()
-                    .send_wildcard()
-                    .block_on_origin_mismatch(false),
+                    .allow_any_header()
+                    .allow_any_method()
+                    .allow_any_origin()
+                    .expose_any_header()
+                    .supports_credentials(),
             )
             .configure(util::configure())
+            .configure(auth::configure())
             .service(
-                SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),
+                web::scope("")
+                    .wrap(Authorization)
+                    .configure(user::configure())
             )
     })
     .bind((
-        Ipv4Addr::UNSPECIFIED, 
-        option_env!("PORT").unwrap_or("").parse::<u16>().unwrap_or(8080))
+        option_env!("HOST").unwrap_or("").parse::<Ipv4Addr>().ok().or(SETTINGS.server.host).unwrap_or(Ipv4Addr::UNSPECIFIED), 
+        option_env!("PORT").unwrap_or("").parse::<u16>().unwrap_or(SETTINGS.server.port))
     )?
     .run()
     .await
